@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>پنل مدیریت ربات اینستاگرام</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- کتابخانه رسمی سوپابیس -->
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Vazirmatn', sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen p-4 sm:p-8 flex flex-col items-center">
+  <div class="max-w-xl w-full space-y-6">
+    
+    <!-- هدر پنل -->
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl text-center">
+      <div class="inline-flex p-3 bg-pink-500/10 border border-pink-500/20 text-pink-400 rounded-xl mb-3">
+        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
+      </div>
+      <h1 class="text-2xl font-bold text-white">پنل مدیریت سشن اینستاگرام</h1>
+      <p class="text-xs text-slate-400 mt-1">مستقر روی گیت‌هاب • متصل مستقیم به دیتابیس سوپابیس</p>
+      
+      <div id="statusBox" class="hidden mt-4 text-xs p-3 rounded-xl"></div>
+    </div>
+
+    <!-- بخش سشن اینستاگرام -->
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h2 class="text-sm font-bold text-white flex items-center gap-2">
+          <span>🔑 وضعیت سشن فعلی:</span>
+        </h2>
+        <button onclick="fetchCurrentData()" class="text-xs text-sky-400 hover:text-sky-300">
+          🔄 بروزرسانی
+        </button>
+      </div>
+
+      <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+        <div class="text-[11px] text-slate-400 mb-1">مقدار ذخیره شده در دیتابیس:</div>
+        <div id="sessionDisplay" class="text-xs font-mono text-pink-400 break-all" dir="ltr">
+          در حال بارگذاری از دیتابیس...
+        </div>
+      </div>
+
+      <!-- فرم وارد کردن سشن جدید -->
+      <div class="space-y-3 pt-2">
+        <label class="text-xs text-slate-300 block font-medium">سشن جدید (sessionid):</label>
+        <textarea id="newSessionInput" rows="3" placeholder="سشن جدید را اینجا پیست کنید..." dir="ltr"
+          class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs font-mono text-white focus:border-pink-500 focus:outline-none"></textarea>
+        
+        <div class="flex flex-col sm:flex-row gap-2">
+          <button onclick="saveNewSession()" id="saveBtn"
+            class="flex-1 bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 text-white font-semibold py-2.5 rounded-xl text-xs shadow-lg transition">
+            💾 ذخیره در سوپابیس
+          </button>
+          <button onclick="testSession()"
+            class="bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 px-4 py-2.5 rounded-xl text-xs transition">
+            ⚡ تست اعتبار سشن
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- تنظیمات توکن ربات -->
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-3">
+      <h2 class="text-sm font-bold text-white">🤖 توکن ربات تلگرام</h2>
+      <input type="text" id="botTokenInput" placeholder="توکن ربات..." dir="ltr"
+        class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-xs text-white font-mono focus:border-sky-500 focus:outline-none">
+      <button onclick="saveBotToken()"
+        class="w-full bg-sky-600 hover:bg-sky-500 text-white font-semibold py-2 rounded-xl text-xs transition">
+        ذخیره توکن
+      </button>
+    </div>
+
+  </div>
+
+  <script>
+    // تنظیمات اتصال به سوپابیس شما
+    const SUPABASE_URL = "https://gftdosybrhwfcgyghziw.supabase.co";
+    // در صورتی که کلید anon دارید اینجا بگذارید
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdmdGRvc3licmh3ZmNneWdoeml3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIzNjE3MjMsImV4cCI6MjA1NzkzNzczM30.YOUR_KEY";
+
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    function showStatus(text, isSuccess) {
+      const box = document.getElementById("statusBox");
+      box.className = isSuccess 
+        ? "mt-4 text-xs p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 block"
+        : "mt-4 text-xs p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 block";
+      box.innerText = text;
+    }
+
+    async function fetchCurrentData() {
+      const display = document.getElementById("sessionDisplay");
+      display.innerText = "در حال خواندن از دیتابیس...";
+
+      try {
+        const { data, error } = await supabase.from("bot_settings").select("key, value");
+        if (error) throw error;
+
+        let sessionVal = "";
+        let tokenVal = "";
+        data?.forEach(row => {
+          if (row.key === "sessionid") sessionVal = row.value;
+          if (row.key === "bot_token") tokenVal = row.value;
+        });
+
+        display.innerText = sessionVal ? sessionVal : "(خالی - هنوز سشن وارد نشده)";
+        if (tokenVal) document.getElementById("botTokenInput").value = tokenVal;
+      } catch (err) {
+        display.innerText = "خطا در برقراری ارتباط با دیتابیس سوپابیس: " + err.message;
+      }
+    }
+
+    async function saveNewSession() {
+      const val = document.getElementById("newSessionInput").value.trim();
+      if (!val) {
+        showStatus("لطفاً کد سشن را وارد کنید", false);
+        return;
+      }
+
+      try {
+        const { error } = await supabase.from("bot_settings").upsert({ key: "sessionid", value: val });
+        if (error) throw error;
+        showStatus("✅ سشن با موفقیت در سوپابیس ذخیره شد!", true);
+        document.getElementById("newSessionInput").value = "";
+        fetchCurrentData();
+      } catch (err) {
+        showStatus("خطا در ذخیره سشن: " + err.message, false);
+      }
+    }
+
+    async function saveBotToken() {
+      const val = document.getElementById("botTokenInput").value.trim();
+      if (!val) return;
+
+      try {
+        const { error } = await supabase.from("bot_settings").upsert({ key: "bot_token", value: val });
+        if (error) throw error;
+        showStatus("✅ توکن ربات ذخیره شد!", true);
+      } catch (err) {
+        showStatus("خطا در ذخیره توکن: " + err.message, false);
+      }
+    }
+
+    async function testSession() {
+      const val = document.getElementById("newSessionInput").value.trim() || document.getElementById("sessionDisplay").innerText;
+      if (!val || val.includes("خالی")) {
+        showStatus("ابتدا سشن را وارد کنید", false);
+        return;
+      }
+
+      showStatus("در حال استعلام از اینستاگرام...", true);
+      try {
+        const res = await fetch(`https://www.instagram.com/api/v1/accounts/current_user/?edit=true`, {
+          headers: {
+            "Cookie": `sessionid=${val};`,
+            "X-IG-App-ID": "936619743392459"
+          }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.user?.username) {
+            showStatus(`✅ سشن فعال است! اکانت متصل: @${data.user.username}`, true);
+            return;
+          }
+        }
+        showStatus("❌ سشن نامعتبر است یا منقضی شده است.", false);
+      } catch (e) {
+        showStatus("پاسخ تست: برای تست زنده لطفاً سشن را ذخیره کرده و در تلگرام تست بفرمایید.", true);
+      }
+    }
+
+    window.onload = fetchCurrentData;
+  </script>
+</body>
+</html>
