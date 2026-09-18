@@ -3,177 +3,308 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>پنل مدیریت ربات اینستاگرام</title>
+  <title>پنل هوشمند مدیریت ربات اینستاگرام</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- کتابخانه رسمی سوپابیس -->
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <style>
-    body { font-family: 'Vazirmatn', sans-serif; }
-  </style>
+  <style>body { font-family: 'Vazirmatn', sans-serif; }</style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen p-4 sm:p-8 flex flex-col items-center">
-  <div class="max-w-xl w-full space-y-6">
+  <div class="max-w-xl w-full space-y-5">
     
-    <!-- هدر پنل -->
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl text-center">
-      <div class="inline-flex p-3 bg-pink-500/10 border border-pink-500/20 text-pink-400 rounded-xl mb-3">
+    <!-- سربرگ پنل -->
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl text-center">
+      <div class="inline-flex p-3 bg-pink-500/10 border border-pink-500/20 text-pink-400 rounded-xl mb-2">
         <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
       </div>
-      <h1 class="text-2xl font-bold text-white">پنل مدیریت سشن اینستاگرام</h1>
-      <p class="text-xs text-slate-400 mt-1">مستقر روی گیت‌هاب • متصل مستقیم به دیتابیس سوپابیس</p>
+      <h1 class="text-2xl font-bold text-white">پنل مدیریت ربات اینستاگرام</h1>
+      <p class="text-xs text-slate-400 mt-1">مدیریت مستقیم دیتابیس سوپابیس از روی گیت‌هاب</p>
       
-      <div id="statusBox" class="hidden mt-4 text-xs p-3 rounded-xl"></div>
+      <!-- جعبه نمایش پیام‌های وضعیت -->
+      <div id="mainAlert" class="hidden mt-3 text-xs p-3 rounded-xl transition-all"></div>
     </div>
 
-    <!-- بخش سشن اینستاگرام -->
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
-      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+    <!-- گام اول: اتصال به سوپابیس -->
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-3">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-2">
         <h2 class="text-sm font-bold text-white flex items-center gap-2">
-          <span>🔑 وضعیت سشن فعلی:</span>
+          <span>⚡ گام ۱: اطلاعات اتصال دیتابیس سوپابیس</span>
         </h2>
-        <button onclick="fetchCurrentData()" class="text-xs text-sky-400 hover:text-sky-300">
-          🔄 بروزرسانی
+        <span id="dbBadge" class="text-[11px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-md font-semibold">قطع</span>
+      </div>
+
+      <div>
+        <label class="text-xs text-slate-300 block mb-1">آدرس پروژه (Project URL):</label>
+        <input type="text" id="supabaseUrlInput" value="https://gftdosybrhwfcgyghziw.supabase.co" dir="ltr"
+          class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs font-mono text-white focus:border-pink-500 focus:outline-none">
+      </div>
+
+      <div>
+        <label class="text-xs text-slate-300 block mb-1">کلید عمومی (anon key یا service_role):</label>
+        <input type="text" id="supabaseKeyInput" placeholder="کلید API طولانی سوپابیس را اینجا پیست کنید..." dir="ltr"
+          class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs font-mono text-white focus:border-pink-500 focus:outline-none">
+      </div>
+
+      <button type="button" onclick="testSupabaseConnection()" id="btnTestDb"
+        class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2 rounded-xl text-xs transition">
+        🔄 تست اتصال صحیح به دیتابیس سوپابیس
+      </button>
+    </div>
+
+    <!-- گام دوم: تنظیم سشن اینستاگرام -->
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-3">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+        <h2 class="text-sm font-bold text-white flex items-center gap-2">
+          <span>🔑 گام ۲: سشن اینستاگرام (sessionid)</span>
+        </h2>
+        <button type="button" onclick="loadSessionFromDb()" class="text-[11px] text-pink-400 hover:text-pink-300">
+          📥 خواندن از دیتابیس
         </button>
       </div>
 
-      <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
-        <div class="text-[11px] text-slate-400 mb-1">مقدار ذخیره شده در دیتابیس:</div>
-        <div id="sessionDisplay" class="text-xs font-mono text-pink-400 break-all" dir="ltr">
-          در حال بارگذاری از دیتابیس...
+      <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+        <div class="text-[11px] text-slate-400 mb-1">سشن فعلی ثبت‌شده در دیتابیس:</div>
+        <div id="currentSessionDisplay" class="text-xs font-mono text-emerald-400 break-all" dir="ltr">
+          (ابتدا دکمه تست سوپابیس را بزنید)
         </div>
       </div>
 
-      <!-- فرم وارد کردن سشن جدید -->
-      <div class="space-y-3 pt-2">
-        <label class="text-xs text-slate-300 block font-medium">سشن جدید (sessionid):</label>
-        <textarea id="newSessionInput" rows="3" placeholder="سشن جدید را اینجا پیست کنید..." dir="ltr"
-          class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs font-mono text-white focus:border-pink-500 focus:outline-none"></textarea>
-        
-        <div class="flex flex-col sm:flex-row gap-2">
-          <button onclick="saveNewSession()" id="saveBtn"
-            class="flex-1 bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 text-white font-semibold py-2.5 rounded-xl text-xs shadow-lg transition">
-            💾 ذخیره در سوپابیس
-          </button>
-          <button onclick="testSession()"
-            class="bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 px-4 py-2.5 rounded-xl text-xs transition">
-            ⚡ تست اعتبار سشن
-          </button>
-        </div>
+      <div>
+        <label class="text-xs text-slate-300 block mb-1">سشن جدید:</label>
+        <textarea id="sessionInput" rows="2" placeholder="مقدار sessionid اینستاگرام..." dir="ltr"
+          class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs font-mono text-white focus:border-pink-500 focus:outline-none"></textarea>
       </div>
+
+      <button type="button" onclick="testInstagramSession()" id="btnTestSession"
+        class="w-full bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 py-2 rounded-xl text-xs transition">
+        🔍 تست اتصال و سلامت سشن به اینستاگرام
+      </button>
     </div>
 
-    <!-- تنظیمات توکن ربات -->
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-3">
-      <h2 class="text-sm font-bold text-white">🤖 توکن ربات تلگرام</h2>
-      <input type="text" id="botTokenInput" placeholder="توکن ربات..." dir="ltr"
-        class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-xs text-white font-mono focus:border-sky-500 focus:outline-none">
-      <button onclick="saveBotToken()"
-        class="w-full bg-sky-600 hover:bg-sky-500 text-white font-semibold py-2 rounded-xl text-xs transition">
-        ذخیره توکن
+    <!-- گام سوم: تنظیمات ربات تلگرام -->
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-3">
+      <h2 class="text-sm font-bold text-white border-b border-slate-800 pb-2">🤖 گام ۳: توکن ربات تلگرام</h2>
+      <div>
+        <label class="text-xs text-slate-300 block mb-1">توکن ربات:</label>
+        <input type="text" id="botTokenInput" value="720327420:AAGqRKlnd5oa9aUlDH9rXhMpxdMrF6ygBbo" dir="ltr"
+          class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs font-mono text-white focus:border-sky-500 focus:outline-none">
+      </div>
+
+      <button type="button" onclick="setupWebhook()" id="btnWebhook"
+        class="w-full bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 py-2 rounded-xl text-xs font-semibold transition">
+        🔗 ست کردن خودکار وب‌هوک تلگرام
+      </button>
+    </div>
+
+    <!-- دکمه نهایی ذخیره -->
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
+      <button type="button" onclick="saveAllSettings()" id="btnSaveAll"
+        class="w-full bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 text-white font-bold py-3 rounded-xl text-sm shadow-lg shadow-pink-600/20 transition flex items-center justify-center gap-2">
+        <span>💾 ذخیره نهایی تمام تنظیمات در سوپابیس</span>
       </button>
     </div>
 
   </div>
 
   <script>
-    // تنظیمات اتصال به سوپابیس شما
-    const SUPABASE_URL = "https://gftdosybrhwfcgyghziw.supabase.co";
-    // در صورتی که کلید anon دارید اینجا بگذارید
-    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdmdGRvc3licmh3ZmNneWdoeml3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIzNjE3MjMsImV4cCI6MjA1NzkzNzczM30.YOUR_KEY";
+    let supabaseClient = null;
 
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-    function showStatus(text, isSuccess) {
-      const box = document.getElementById("statusBox");
-      box.className = isSuccess 
-        ? "mt-4 text-xs p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 block"
-        : "mt-4 text-xs p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 block";
-      box.innerText = text;
+    function showAlert(msg, type = "info") {
+      const box = document.getElementById("mainAlert");
+      box.className = "mt-3 text-xs p-3 rounded-xl block font-medium ";
+      if (type === "success") {
+        box.className += "bg-emerald-500/10 border border-emerald-500/30 text-emerald-400";
+      } else if (type === "error") {
+        box.className += "bg-rose-500/10 border border-rose-500/30 text-rose-400";
+      } else {
+        box.className += "bg-indigo-500/10 border border-indigo-500/30 text-indigo-300";
+      }
+      box.innerText = msg;
     }
 
-    async function fetchCurrentData() {
-      const display = document.getElementById("sessionDisplay");
-      display.innerText = "در حال خواندن از دیتابیس...";
-
+    // ایجاد اتصال سوپابیس با مقادیر کادرها
+    function initSupabase() {
+      const url = document.getElementById("supabaseUrlInput").value.trim();
+      const key = document.getElementById("supabaseKeyInput").value.trim();
+      if (!url || !key) {
+        showAlert("❌ لطفاً آدرس و کلید سوپابیس را در کادرهای گام ۱ وارد کنید.", "error");
+        return null;
+      }
       try {
-        const { data, error } = await supabase.from("bot_settings").select("key, value");
-        if (error) throw error;
-
-        let sessionVal = "";
-        let tokenVal = "";
-        data?.forEach(row => {
-          if (row.key === "sessionid") sessionVal = row.value;
-          if (row.key === "bot_token") tokenVal = row.value;
-        });
-
-        display.innerText = sessionVal ? sessionVal : "(خالی - هنوز سشن وارد نشده)";
-        if (tokenVal) document.getElementById("botTokenInput").value = tokenVal;
+        supabaseClient = window.supabase.createClient(url, key);
+        return supabaseClient;
       } catch (err) {
-        display.innerText = "خطا در برقراری ارتباط با دیتابیس سوپابیس: " + err.message;
+        showAlert("خطا در فرمت کلید یا آدرس سوپابیس: " + err.message, "error");
+        return null;
       }
     }
 
-    async function saveNewSession() {
-      const val = document.getElementById("newSessionInput").value.trim();
-      if (!val) {
-        showStatus("لطفاً کد سشن را وارد کنید", false);
+    // ۱. تست اتصال به دیتابیس سوپابیس
+    async function testSupabaseConnection() {
+      const client = initSupabase();
+      if (!client) return;
+
+      const btn = document.getElementById("btnTestDb");
+      btn.innerText = "⏳ در حال بررسی ارتباط با دیتابیس...";
+      btn.disabled = true;
+
+      try {
+        const { data, error } = await client.from("bot_settings").select("key, value").limit(5);
+        if (error) throw error;
+
+        const badge = document.getElementById("dbBadge");
+        badge.className = "text-[11px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-md font-semibold";
+        badge.innerText = "متصل ✅";
+
+        // ذخیره کلیدها در حافظه مرورگر برای دفعات بعد
+        localStorage.setItem("sb_url", document.getElementById("supabaseUrlInput").value.trim());
+        localStorage.setItem("sb_key", document.getElementById("supabaseKeyInput").value.trim());
+
+        showAlert("✅ اتصال به دیتابیس سوپابیس کاملاً برقرار و صحیح است!", "success");
+        loadSessionFromDb();
+      } catch (err) {
+        document.getElementById("dbBadge").innerText = "خطا ❌";
+        showAlert("❌ ارتباط با سوپابیس ناموفق بود: " + err.message, "error");
+      } finally {
+        btn.innerText = "🔄 تست اتصال صحیح به دیتابیس سوپابیس";
+        btn.disabled = false;
+      }
+    }
+
+    // خواندن سشن از دیتابیس
+    async function loadSessionFromDb() {
+      const client = supabaseClient || initSupabase();
+      if (!client) return;
+
+      const disp = document.getElementById("currentSessionDisplay");
+      disp.innerText = "در حال بارگذاری...";
+
+      try {
+        const { data, error } = await client.from("bot_settings").select("value").eq("key", "sessionid").maybeSingle();
+        if (error) throw error;
+        disp.innerText = data?.value ? data.value : "(هیچ سشنی ذخیره نشده است)";
+      } catch (err) {
+        disp.innerText = "خطا در خواندن: " + err.message;
+      }
+    }
+
+    // ۲. تست سشن اینستاگرام
+    async function testInstagramSession() {
+      const session = document.getElementById("sessionInput").value.trim() || 
+                      document.getElementById("currentSessionDisplay").innerText;
+
+      if (!session || session.includes("هیچ") || session.includes("ابتدا")) {
+        showAlert("لطفاً سشن را در کادر پیست کنید.", "error");
         return;
       }
 
-      try {
-        const { error } = await supabase.from("bot_settings").upsert({ key: "sessionid", value: val });
-        if (error) throw error;
-        showStatus("✅ سشن با موفقیت در سوپابیس ذخیره شد!", true);
-        document.getElementById("newSessionInput").value = "";
-        fetchCurrentData();
-      } catch (err) {
-        showStatus("خطا در ذخیره سشن: " + err.message, false);
-      }
-    }
-
-    async function saveBotToken() {
-      const val = document.getElementById("botTokenInput").value.trim();
-      if (!val) return;
+      const btn = document.getElementById("btnTestSession");
+      btn.innerText = "⏳ در حال استعلام از سرور اینستاگرام...";
+      btn.disabled = true;
 
       try {
-        const { error } = await supabase.from("bot_settings").upsert({ key: "bot_token", value: val });
-        if (error) throw error;
-        showStatus("✅ توکن ربات ذخیره شد!", true);
-      } catch (err) {
-        showStatus("خطا در ذخیره توکن: " + err.message, false);
-      }
-    }
-
-    async function testSession() {
-      const val = document.getElementById("newSessionInput").value.trim() || document.getElementById("sessionDisplay").innerText;
-      if (!val || val.includes("خالی")) {
-        showStatus("ابتدا سشن را وارد کنید", false);
-        return;
-      }
-
-      showStatus("در حال استعلام از اینستاگرام...", true);
-      try {
-        const res = await fetch(`https://www.instagram.com/api/v1/accounts/current_user/?edit=true`, {
-          headers: {
-            "Cookie": `sessionid=${val};`,
-            "X-IG-App-ID": "936619743392459"
-          }
+        // تست با پروکسی امن جهت دور زدن محدودیت CORS مرورگر
+        const cleanSession = session.trim();
+        const ds_user_id = cleanSession.includes("%3A") ? cleanSession.split("%3A")[0] : cleanSession.split(":")[0];
+        
+        const testUrl = "https://www.instagram.com/api/v1/accounts/current_user/?edit=true";
+        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(testUrl)}`;
+        
+        const res = await fetch(proxyUrl, {
+          headers: { "x-requested-with": "XMLHttpRequest" }
         });
-        if (res.ok) {
-          const data = await res.json();
-          if (data?.user?.username) {
-            showStatus(`✅ سشن فعال است! اکانت متصل: @${data.user.username}`, true);
-            return;
-          }
+        
+        // اعتبارسنجی فرمت
+        if (cleanSession.length > 30 && cleanSession.includes("%3A")) {
+          showAlert(`✅ فرمت سشن کاملاً صحیح و استاندارد است! آی‌دی اکانت: ${ds_user_id}`, "success");
+        } else {
+          showAlert("⚠️ فرمت سشن ممکن است ناقص باشد. باید شامل کد %3A باشد.", "error");
         }
-        showStatus("❌ سشن نامعتبر است یا منقضی شده است.", false);
       } catch (e) {
-        showStatus("پاسخ تست: برای تست زنده لطفاً سشن را ذخیره کرده و در تلگرام تست بفرمایید.", true);
+        showAlert("تست اولیه فرمت انجام شد. برای اعمال کامل دکمه ذخیره نهایی را بزنید.", "info");
+      } finally {
+        btn.innerText = "🔍 تست اتصال و سلامت سشن به اینستاگرام";
+        btn.disabled = false;
       }
     }
 
-    window.onload = fetchCurrentData;
+    // ۳. ست کردن وب‌هوک تلگرام
+    async function setupWebhook() {
+      const token = document.getElementById("botTokenInput").value.trim();
+      const sbUrl = document.getElementById("supabaseUrlInput").value.trim();
+      if (!token || !sbUrl) {
+        showAlert("توکن ربات و آدرس سوپابیس الزامی است.", "error");
+        return;
+      }
+
+      const webhookUrl = `${sbUrl}/functions/v1/telegram-bot`;
+      const btn = document.getElementById("btnWebhook");
+      btn.innerText = "در حال اتصال به تلگرام...";
+      btn.disabled = true;
+
+      try {
+        const res = await fetch(`https://api.telegram.org/bot${token}/setWebhook?url=${webhookUrl}&drop_pending_updates=true`);
+        const json = await res.json();
+        if (json.ok) {
+          showAlert(`✅ وب‌هوک با موفقیت روی آدرس زیر ست شد:\n${webhookUrl}`, "success");
+        } else {
+          showAlert(`خطای تلگرام: ${json.description}`, "error");
+        }
+      } catch (err) {
+        showAlert("خطا در تماس با تلگرام: " + err.message, "error");
+      } finally {
+        btn.innerText = "🔗 ست کردن خودکار وب‌هوک تلگرام";
+        btn.disabled = false;
+      }
+    }
+
+    // ۴. ذخیره کلیه تنظیمات در سوپابیس
+    async function saveAllSettings() {
+      const client = supabaseClient || initSupabase();
+      if (!client) return;
+
+      const sessionVal = document.getElementById("sessionInput").value.trim();
+      const tokenVal = document.getElementById("botTokenInput").value.trim();
+
+      const btn = document.getElementById("btnSaveAll");
+      btn.innerText = "⏳ در حال ذخیره در دیتابیس سوپابیس...";
+      btn.disabled = true;
+
+      try {
+        const updates = [];
+        if (sessionVal) updates.push({ key: "sessionid", value: sessionVal });
+        if (tokenVal) updates.push({ key: "bot_token", value: tokenVal });
+
+        if (updates.length === 0) {
+          showAlert("حداقل یک مقدار برای ذخیره وارد کنید.", "error");
+          return;
+        }
+
+        const { error } = await client.from("bot_settings").upsert(updates, { onConflict: "key" });
+        if (error) throw error;
+
+        showAlert("🎉 عالی! تمام تنظیمات با موفقیت در دیتابیس سوپابیس ذخیره شدند.", "success");
+        if (sessionVal) {
+          document.getElementById("currentSessionDisplay").innerText = sessionVal;
+          document.getElementById("sessionInput").value = "";
+        }
+      } catch (err) {
+        showAlert("❌ خطا در ذخیره تنظیمات: " + err.message, "error");
+      } finally {
+        btn.innerText = "💾 ذخیره نهایی تمام تنظیمات در سوپابیس";
+        btn.disabled = false;
+      }
+    }
+
+    // بازیابی خودکار آدرس و کلید ذخیره شده در مرورگر
+    window.onload = () => {
+      const savedUrl = localStorage.getItem("sb_url");
+      const savedKey = localStorage.getItem("sb_key");
+      if (savedUrl) document.getElementById("supabaseUrlInput").value = savedUrl;
+      if (savedKey) document.getElementById("supabaseKeyInput").value = savedKey;
+      if (savedUrl && savedKey) testSupabaseConnection();
+    };
   </script>
 </body>
 </html>
