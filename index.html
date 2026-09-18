@@ -72,17 +72,18 @@
       <div class="bg-amber-500/10 border border-amber-500/20 rounded-xl p-2.5 text-[11px] text-amber-300 leading-relaxed">
         <b>📖 راهنمای گرفتن سشن:</b><br>
         ۱. با مرورگر لاگین کن به اینستاگرام<br>
-        ۲. F12 بزن → تب Application → Cookies<br>
-        ۳. مقدار <code class="bg-black/30 px-1 rounded">sessionid</code> رو کپی کن<br>
-        ۴. مقدار <code class="bg-black/30 px-1 rounded">ds_user_id</code> رو هم کپی کن<br>
-        ۵. اینطوری کنار هم بذار: <code class="bg-black/30 px-1 rounded" dir="ltr">sessionid:ds_user_id</code>
+        ۲. F12 بزن → تب Application → Cookies → instagram.com<br>
+        ۳. روی کوکی <code class="bg-black/30 px-1 rounded">sessionid</code> کلیک کن<br>
+        ۴. توی ستون Value، مقدار کامل رو کپی کن<br>
+        ۵. همون رو اینجا پیست کن (فرمت خودکار تشخیص داده می‌شه)
       </div>
 
       <div>
         <label class="text-xs text-slate-300 block mb-1">
-          سشن جدید (فرمت: <code class="text-pink-400" dir="ltr">sessionid:ds_user_id</code>):
+          سشن جدید (هر فرمتی قبول می‌شه: ساده، دو بخشی، یا چهار بخشی با <code class="text-pink-400">%3A</code>):
         </label>
-        <textarea id="sessionInput" rows="3" placeholder="مثال: 12345678%3AAbCdEf...:9876543210" dir="ltr"
+        <textarea id="sessionInput" rows="3"
+          placeholder="مثال: AYk4f_ucuwEkoT0jCS9hFtt9cy5c-K2pqZNWW61QjA:14260044481" dir="ltr"
           class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs font-mono text-white focus:border-pink-500 focus:outline-none"></textarea>
       </div>
 
@@ -139,7 +140,7 @@
 
     function showAlert(msg, type = "info") {
       const box = document.getElementById("mainAlert");
-      box.className = "mt-3 text-xs p-3 rounded-xl block font-medium ";
+      box.className = "mt-3 text-xs p-3 rounded-xl block font-medium whitespace-pre-wrap ";
       if (type === "success") {
         box.className += "bg-emerald-500/10 border border-emerald-500/30 text-emerald-400";
       } else if (type === "error") {
@@ -166,6 +167,113 @@
       }
     }
 
+    // ============ اعتبارسنجی سشن با پشتیبانی از همه فرمت‌ها ============
+    function validateSession(session) {
+      if (!session || session.trim() === "") {
+        return { ok: false, msg: "سشن خالیه" };
+      }
+
+      const trimmed = session.trim();
+      let decoded;
+      try {
+        decoded = decodeURIComponent(trimmed);
+      } catch {
+        decoded = trimmed;
+      }
+
+      const parts = decoded.split(":").map((p) => p.trim()).filter(Boolean);
+
+      // حالت ۱: فقط sessionid (بدون :)
+      if (parts.length === 1) {
+        if (parts[0].length < 20) {
+          return { ok: false, msg: "sessionid خیلی کوتاهه (باید حداقل ۲۰ کاراکتر باشه)" };
+        }
+        return {
+          ok: true,
+          msg:
+            `✅ فرمت ساده (فقط sessionid)\n\n` +
+            `🔑 طول sessionid: ${parts[0].length} کاراکتر`,
+          parsed: { sessionid: parts[0], ds_user_id: "" },
+        };
+      }
+
+      // حالت ۲: دو بخشی (sessionid:ds_user_id یا برعکس)
+      if (parts.length === 2) {
+        const [a, b] = parts;
+        const aIsNum = /^\d+$/.test(a);
+        const bIsNum = /^\d+$/.test(b);
+
+        if (aIsNum && !bIsNum) {
+          return {
+            ok: true,
+            msg:
+              `✅ فرمت: ds_user_id:sessionid\n\n` +
+              `🆔 شناسه کاربر: ${a}\n` +
+              `🔑 طول sessionid: ${b.length} کاراکتر`,
+            parsed: { sessionid: b, ds_user_id: a },
+          };
+        }
+        if (!aIsNum && bIsNum) {
+          return {
+            ok: true,
+            msg:
+              `✅ فرمت: sessionid:ds_user_id\n\n` +
+              `🆔 شناسه کاربر: ${b}\n` +
+              `🔑 طول sessionid: ${a.length} کاراکتر`,
+            parsed: { sessionid: a, ds_user_id: b },
+          };
+        }
+        return {
+          ok: false,
+          msg: "فرمت دو بخشی مشکوکه (هیچ کدوم عدد نیستن یا هر دو عدد هستن)",
+        };
+      }
+
+      // حالت ۳: چند بخشی (۳ یا بیشتر) - فرمت جدید اینستاگرام
+      if (parts.length >= 3) {
+        const firstIsNum = /^\d+$/.test(parts[0]);
+        const lastIsNum = /^\d+$/.test(parts[parts.length - 1]);
+
+        let ds_user_id = "";
+        let sessionid = "";
+
+        if (firstIsNum && !lastIsNum) {
+          // ds_user_id اول، sessionid آخر
+          ds_user_id = parts[0];
+          sessionid = parts[parts.length - 1];
+        } else if (lastIsNum && !firstIsNum) {
+          // ds_user_id آخر، sessionid اول
+          ds_user_id = parts[parts.length - 1];
+          sessionid = parts[0];
+        } else {
+          // هر دو عدد یا هر دو غیر عدد
+          ds_user_id = parts.find((p) => /^\d+$/.test(p)) || parts[0];
+          sessionid =
+            parts.filter((p) => p !== ds_user_id).slice(-1)[0] ||
+            parts[parts.length - 1];
+        }
+
+        if (!ds_user_id) {
+          return { ok: false, msg: "نتونستم ds_user_id رو تشخیص بدم" };
+        }
+        if (sessionid.length < 20) {
+          return { ok: false, msg: "sessionid خیلی کوتاهه" };
+        }
+
+        return {
+          ok: true,
+          msg:
+            `✅ فرمت جدید (${parts.length} بخشی) صحیحه!\n\n` +
+            `🆔 شناسه کاربر: ${ds_user_id}\n` +
+            `🔑 طول sessionid: ${sessionid.length} کاراکتر`,
+          parsed: { sessionid, ds_user_id },
+        };
+      }
+
+      return { ok: false, msg: "فرمت ناشناخته" };
+    }
+
+    // ============ تست اتصال به دیتابیس ============
     async function testSupabaseConnection() {
       const client = initSupabase();
       if (!client) return;
@@ -179,11 +287,18 @@
         if (error) throw error;
 
         const badge = document.getElementById("dbBadge");
-        badge.className = "text-[11px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-md font-semibold";
+        badge.className =
+          "text-[11px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-md font-semibold";
         badge.innerText = "متصل ✅";
 
-        localStorage.setItem("sb_url", document.getElementById("supabaseUrlInput").value.trim());
-        localStorage.setItem("sb_key", document.getElementById("supabaseKeyInput").value.trim());
+        localStorage.setItem(
+          "sb_url",
+          document.getElementById("supabaseUrlInput").value.trim()
+        );
+        localStorage.setItem(
+          "sb_key",
+          document.getElementById("supabaseKeyInput").value.trim()
+        );
 
         showAlert("✅ اتصال به دیتابیس برقرار شد.", "success");
         loadSessionFromDb();
@@ -196,6 +311,7 @@
       }
     }
 
+    // ============ خواندن سشن از دیتابیس ============
     async function loadSessionFromDb() {
       const client = supabaseClient || initSupabase();
       if (!client) return;
@@ -212,13 +328,13 @@
         if (error) throw error;
 
         if (data?.value) {
+          const check = validateSession(data.value);
           disp.innerText = data.value;
-          // اگه فرمتش درست نیست هشدار بده
-          if (!data.value.includes(":")) {
-            disp.className = "text-xs font-mono text-amber-400 break-all";
-            disp.innerText = data.value + "\n\n⚠️ فرمت اشتباه! باید شامل ':' باشه (sessionid:ds_user_id)";
-          } else {
+          if (check.ok) {
             disp.className = "text-xs font-mono text-emerald-400 break-all";
+          } else {
+            disp.className = "text-xs font-mono text-amber-400 break-all";
+            disp.innerText += "\n\n⚠️ " + check.msg;
           }
         } else {
           disp.innerText = "(هیچ سشنی ذخیره نشده)";
@@ -228,39 +344,32 @@
       }
     }
 
+    // ============ تست فرمت سشن ============
     function testInstagramSession() {
-      const session = document.getElementById("sessionInput").value.trim() ||
-                      document.getElementById("currentSessionDisplay").innerText.trim();
+      const session =
+        document.getElementById("sessionInput").value.trim() ||
+        document.getElementById("currentSessionDisplay").innerText.trim();
 
       if (!session || session.includes("هیچ") || session.includes("ابتدا")) {
         showAlert("لطفاً سشن را در کادر پیست کنید.", "error");
         return;
       }
 
-      // فرمت صحیح: باید یک ':' داشته باشه و دو طرفش مقدار باشه
-      const parts = session.split(":");
-      if (parts.length !== 2 || !parts[0] || !parts[1]) {
-        showAlert("❌ فرمت سشن اشتباهه!\n\nباید دقیقاً اینطوری باشه:\nsessionid:ds_user_id\n\nمثال:\n12345678%3AAbCd:9876543210", "error");
-        return;
+      const result = validateSession(session);
+      if (result.ok) {
+        showAlert(result.msg, "success");
+      } else {
+        showAlert("❌ " + result.msg, "error");
       }
-
-      const [sid, uid] = parts;
-      if (!/^\d+$/.test(uid)) {
-        showAlert("❌ بخش ds_user_id (بعد از ':') باید فقط عدد باشه.", "error");
-        return;
-      }
-
-      if (sid.length < 30) {
-        showAlert("⚠️ بخش sessionid خیلی کوتاهه. مطمئن شو کامل کپی کردی.", "error");
-        return;
-      }
-
-      showAlert(`✅ فرمت سشن صحیحه!\n\nشناسه کاربر: ${uid}\nطول سشن: ${sid.length} کاراکتر\n\nتوجه: بررسی واقعی سشن فقط از طریق ربات انجام می‌شه.`, "success");
     }
 
+    // ============ ست کردن webhook ============
     async function setupWebhook() {
       const token = document.getElementById("botTokenInput").value.trim();
-      const sbUrl = document.getElementById("supabaseUrlInput").value.trim().replace(/\/+$/, "");
+      const sbUrl = document
+        .getElementById("supabaseUrlInput")
+        .value.trim()
+        .replace(/\/+$/, "");
       const fnName = document.getElementById("fnNameInput").value.trim();
 
       if (!token || !sbUrl || !fnName) {
@@ -275,7 +384,9 @@
 
       try {
         const res = await fetch(
-          `https://api.telegram.org/bot${token}/setWebhook?url=${encodeURIComponent(webhookUrl)}&drop_pending_updates=true`
+          `https://api.telegram.org/bot${token}/setWebhook?url=${encodeURIComponent(
+            webhookUrl
+          )}&drop_pending_updates=true`
         );
         const json = await res.json();
         if (json.ok) {
@@ -291,6 +402,7 @@
       }
     }
 
+    // ============ ذخیره تنظیمات ============
     async function saveAllSettings() {
       const client = supabaseClient || initSupabase();
       if (!client) return;
@@ -298,11 +410,11 @@
       const sessionVal = document.getElementById("sessionInput").value.trim();
       const tokenVal = document.getElementById("botTokenInput").value.trim();
 
-      // اعتبارسنجی سشن قبل از ذخیره
+      // اعتبارسنجی سشن
       if (sessionVal) {
-        const parts = sessionVal.split(":");
-        if (parts.length !== 2 || !parts[0] || !/^\d+$/.test(parts[1])) {
-          showAlert("❌ فرمت سشن اشتباهه! باید اینطوری باشه:\nsessionid:ds_user_id\n\nمثال: 1234%3Aabc:9876543210", "error");
+        const check = validateSession(sessionVal);
+        if (!check.ok) {
+          showAlert("❌ سشن نامعتبره: " + check.msg, "error");
           return;
         }
       }
@@ -321,13 +433,16 @@
           return;
         }
 
-        const { error } = await client.from("bot_settings").upsert(updates, { onConflict: "key" });
+        const { error } = await client
+          .from("bot_settings")
+          .upsert(updates, { onConflict: "key" });
         if (error) throw error;
 
         showAlert("🎉 تنظیمات با موفقیت ذخیره شد.", "success");
         if (sessionVal) {
           document.getElementById("currentSessionDisplay").innerText = sessionVal;
-          document.getElementById("currentSessionDisplay").className = "text-xs font-mono text-emerald-400 break-all";
+          document.getElementById("currentSessionDisplay").className =
+            "text-xs font-mono text-emerald-400 break-all";
           document.getElementById("sessionInput").value = "";
         }
       } catch (err) {
@@ -338,12 +453,12 @@
       }
     }
 
+    // ============ بارگذاری اولیه ============
     window.onload = () => {
       const savedUrl = localStorage.getItem("sb_url");
       const savedKey = localStorage.getItem("sb_key");
       if (savedUrl) document.getElementById("supabaseUrlInput").value = savedUrl;
       if (savedKey) document.getElementById("supabaseKeyInput").value = savedKey;
-      // دیگه خودکار تست نمی‌کنه — کاربر خودش دکمه رو بزنه
     };
   </script>
 </body>
